@@ -44,6 +44,14 @@ app.get("/users", async (req: Request, res: Response) => {
             usersDB = result
         }
 
+        const users: User[] = usersDB.map((userDB)=> new User(
+            userDB.id,
+            userDB. name,
+            userDB.email,
+            userDB.password,
+            userDB.created_at
+        ))
+
         res.status(200).send(usersDB)
     } catch (error) {
         console.log(error)
@@ -91,17 +99,35 @@ app.post("/users", async (req: Request, res: Response) => {
             throw new Error("'id' já existe")
         }
 
-        const newUser: TUserDBPost = {
+        // const newUser: TUserDBPost = {
+        //     id,
+        //     name,
+        //     email,
+        //     password
+        // }
+
+        //1.INSTANCIAR
+
+        const newUser = new User (
             id,
             name,
             email,
-            password
+            password,
+            new Date().toISOString()
+        )
+           
+        //2.Objeto simples para modelar as infos para o banco de dados
+        const newUserDB = {
+            id: newUser.getId(),
+            name: newUser.getName(),
+            email: newUser.getPassword(),
+            created_at: newUser.getCreateAt()
         }
+        await db("users").insert(newUserDB)
 
-        await db("users").insert(newUser)
-        const [ userDB ]: TUserDB[] = await db("users").where({ id })
+        // const [ userDB ]: TUserDB[] = await db("users").where({ id })
 
-        res.status(201).send(userDB)
+        res.status(201).send(newUser)
     } catch (error) {
         console.log(error)
 
