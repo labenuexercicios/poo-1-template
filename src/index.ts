@@ -1,8 +1,10 @@
 import express, { Request, Response } from "express";
 import cors from "cors";
-import { TAccountDB, TAccountDBPost, TUserDB, TUserDBPost } from "./types";
-import { db } from "./database/knex";
+// import { TAccountDB, TAccountDBPost, TUserDB, TUserDBPost } from "./types";
+// import { db } from "./database/knex";
 import { Video } from "./models/Video";
+import { VideoDataBase } from "./database/VideoDataBase";
+import { TVideoDB } from "./types";
 
 const app = express();
 
@@ -38,15 +40,9 @@ console.log("get title", video1.getTitle());
 
 app.get("/videos", async (req: Request, res: Response) => {
   try {
-    const q = req.query.q;
-    let videosDB;
-    if (q) {
-      const result = await db("videos").where("name", "LIKE", `%${q}%`);
-      videosDB = result;
-    } else {
-      const result = await db("videos");
-      videosDB = result;
-    }
+    const q = req.query.q as string|undefined;
+    const videosDataBase = new VideoDataBase()
+    const videosDB = await videosDataBase.getVideos(q)
 
     const videos: Video[] = videosDB.map(
       (videoDB) =>
@@ -92,7 +88,9 @@ app.post("/videos", async (req: Request, res: Response) => {
       throw new Error("'duration' deve ser number");
     }
 
-    const [videosDBExists] = await db("videos").where({ id });
+    const videoDataBase = new VideoDataBase()
+
+    const [videosDBExists] = await videoDataBase.getVideos(id)
     if (videosDBExists) {
       res.status(400);
       throw new Error("'id' já existe.");
@@ -107,8 +105,8 @@ app.post("/videos", async (req: Request, res: Response) => {
       upload_at: newVideo.getUploadAt(),
     };
 
-    await db("videos").insert(newVideoDB);
-    const [videosDB] = await db("videos").where({ id });
+    await videoDataBase.createVideo(newVideoDB)
+    
     res.status(201).send(newVideo);
   } catch (error) {
     console.log(error);
@@ -133,29 +131,27 @@ app.put("/videos/:id", async (req: Request, res: Response) => {
     const newTitle = req.body.title;
     const newDuration = req.body.duration;
 
-    const [videoDB] = await db("videos").where({ id });
-
-    const [videosDBExists] = await db("videos").where({ id });
+    const videoDataBase = new VideoDataBase()
+    const [videosDBExists] = await videoDataBase.getVideos(id);
     if (!videosDBExists) {
       res.status(400);
       throw new Error("'id' não existe.");
     }
-
-    const newVideo = new Video(
-      newId,
-      newTitle,
-      newDuration,
-      new Date().toISOString()
-    );
+    
+    const updateVideo = new Video(
+      videosDBExists.id,
+      videosDBExists.title,
+      videosDBExists.duration,
+      videosDBExists.upload_at
+    )
 
     const newVideoDB = {
-      id: newId || videoDB.id,
-      title: newTitle || videoDB.title,
-      duration: newDuration || videoDB.duration,
+      id: updateVideo.getId(),
+      title: updateVideo.getTitle(),
+      duration: updateVideo.getDuration(),
     };
 
-    await db("videos").update(newVideoDB).where({ id });
-    res.status(200).send("video atualizado com sucesso.").send(newVideo);
+    res.status(200).send("video atualizado com sucesso.").send(newVideoDB);
   } catch (error) {
     console.log(error);
 
@@ -174,12 +170,15 @@ app.put("/videos/:id", async (req: Request, res: Response) => {
 app.delete("/videos/:id", async (req: Request, res: Response) => {
   try {
     const id = req.params.id;
-    const [existingVideos] = await db("videos").where({id});
+
+    const videosDataBase = new VideoDataBase()
+
+    const [existingVideos] = await videosDataBase.getVideos(id);
     if (!existingVideos) {
       res.status(404);
       throw new Error("Video não encontrado."); 
     }
-    await db("videos").delete().where("id",id);
+    await videosDataBase.deleteVideo(id)
     res.status(200).send("video excluido com sucesso.")
 
   } catch (error) {
