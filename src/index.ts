@@ -2,6 +2,8 @@ import express, { Request, Response } from 'express'
 import cors from 'cors'
 import { TAccountDB, TAccountDBPost, TUserDB, TUserDBPost } from './types'
 import { db } from './database/knex'
+import { User } from './models/User'
+import { Account } from './models/Account'
 
 const app = express()
 
@@ -42,9 +44,18 @@ app.get("/users", async (req: Request, res: Response) => {
         } else {
             const result: TUserDB[] = await db("users")
             usersDB = result
-        }
+        };
 
-        res.status(200).send(usersDB)
+        const users: User[] = usersDB.map((userDB) => new User(
+                userDB.id,
+                userDB.name,
+                userDB.email,
+                userDB.password,
+                userDB.created_at
+            )
+        )
+
+        res.status(200).send(users)
     } catch (error) {
         console.log(error)
 
@@ -91,17 +102,33 @@ app.post("/users", async (req: Request, res: Response) => {
             throw new Error("'id' já existe")
         }
 
-        const newUser: TUserDBPost = {
+        // const newUser: TUserDBPost = {
+        //     id,
+        //     name,
+        //     email,
+        //     password
+        // }
+
+        const newUser = new User(
             id,
             name,
             email,
-            password
+            password,
+            new Date().toISOString()
+        )
+
+        const newUsersDb = {
+            id: newUser.getId(),
+            name: newUser.getName(),
+            email: newUser.getEmail(),
+            password: newUser.getPassword(),
+            created_at: newUser.getCreatedAt()
         }
 
-        await db("users").insert(newUser)
-        const [ userDB ]: TUserDB[] = await db("users").where({ id })
+        await db("users").insert(newUsersDb)
+        //const [ userDB ]: TUserDB[] = await db("users").where({ id })
 
-        res.status(201).send(userDB)
+        res.status(201).send(newUser)
     } catch (error) {
         console.log(error)
 
@@ -121,7 +148,14 @@ app.get("/accounts", async (req: Request, res: Response) => {
     try {
         const accountsDB: TAccountDB[] = await db("accounts")
 
-        res.status(200).send(accountsDB)
+        const accounts: Account[] = accountsDB.map((accountDB) => new Account(
+            accountDB.id,
+            accountDB.owner_id,
+            accountDB.balance,
+            accountDB.created_at
+        ))
+
+        res.status(200).send(accounts)
     } catch (error) {
         console.log(error)
 
