@@ -2,6 +2,8 @@ import express, { Request, Response } from 'express'
 import cors from 'cors'
 import { TAccountDB, TAccountDBPost, TUserDB, TUserDBPost } from './types'
 import { db } from './database/knex'
+import { User } from './models/User'
+import { Account } from './models/Account'
 
 const app = express()
 
@@ -44,7 +46,17 @@ app.get("/users", async (req: Request, res: Response) => {
             usersDB = result
         }
 
-        res.status(200).send(usersDB)
+        // res.status(200).send(usersDB)
+
+        const users: User[] = usersDB.map((userDB) => new User(
+            userDB.id,
+            userDB.name,
+            userDB.email,
+            userDB.password,
+            userDB.created_at
+            ))
+
+        res.status(200).send(users)
     } catch (error) {
         console.log(error)
 
@@ -91,11 +103,20 @@ app.post("/users", async (req: Request, res: Response) => {
             throw new Error("'id' já existe")
         }
 
-        const newUser: TUserDBPost = {
+        const user = new User(
             id,
             name,
             email,
-            password
+            password,
+            new Date().toISOString()
+        )
+
+        const newUser: TUserDB = {
+            id: user.getId(),
+            name: user.getName(),
+            email: user.getEmail(),
+            password: user.getPassword(),
+            created_at: user.getCreatedAt()
         }
 
         await db("users").insert(newUser)
@@ -121,7 +142,14 @@ app.get("/accounts", async (req: Request, res: Response) => {
     try {
         const accountsDB: TAccountDB[] = await db("accounts")
 
-        res.status(200).send(accountsDB)
+        const accounts: Account[] = accountsDB.map((accountDB) => new Account(
+            accountDB.id,
+            accountDB.balance,
+            accountDB.owner_id,
+            accountDB.created_at
+            ))
+
+        res.status(200).send(accounts)
     } catch (error) {
         console.log(error)
 
@@ -186,9 +214,18 @@ app.post("/accounts", async (req: Request, res: Response) => {
             throw new Error("'id' já existe")
         }
 
-        const newAccount: TAccountDBPost = {
+        const account: Account = new Account (
             id,
-            owner_id: ownerId
+            0,
+            ownerId,
+            new Date().toISOString()
+        )
+
+        const newAccount: TAccountDB = {
+            id: account.getId(),
+            balance: account.getBalance(),
+            owner_id: account.getOwnerId(),
+            created_at: account.getCreatedAt()
         }
 
         await db("accounts").insert(newAccount)
